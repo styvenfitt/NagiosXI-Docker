@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  mariadb:
+    image: mariadb:10.6
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: nagiosxi
+      MYSQL_USER: nagios
+      MYSQL_PASSWORD: nagiospass
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - nagiosnet
+
+  nagiosxi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nagiosxi
+    ports:
+      - "80:80"
+      - "5666:5666"
+      - "5667:5667"
+    environment:
+      DB_NAME: nagiosxi
+      DB_HOST: mariadb
+      DB_USER: nagios
+      DB_PASS: nagiospass
+    volumes:
+      - nagios_data:/usr/local/nagiosxi
+    depends_on:
+      - mariadb
+    networks:
+      - nagiosnet
+
+volumes:
+  db_data:
+  nagios_data:
+
+networks:
+  nagiosnet:
+    driver: bridge

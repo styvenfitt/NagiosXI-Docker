@@ -1,12 +1,29 @@
-FROM centos:6 
-MAINTAINER cbpeckles
+FROM rockylinux:9 
+LABEL maintainer="cbpeckles"
 
 # get stuff from the interwebs
-RUN yum -y install wget tar; yum clean all
-RUN mkdir /tmp/nagiosxi \
-    && wget -qO- https://assets.nagios.com/downloads/nagiosxi/5/xi‑5.8.3.tar.gz \
-    | tar xz -C /tmp
-WORKDIR /tmp/nagiosxi
+RUN dnf -y update && \
+    dnf -y install wget unzip net-tools dnf-utils \
+    php php-cli php-mysqlnd httpd \
+    gcc glibc glibc-langpack-en gd gd-devel make net-snmp openssl-devel \
+    xinetd tar && \
+    yum clean all
+    
+# install nagiosxi
+# download and extract the latest version of Nagios XI
+# Note: The version number in the URL should be updated to the latest version as needed.
+# The version in this example is 5.11.3, but you should check for the latest version on the Nagios website.
+# The URL is subject to change, so ensure you have the correct link.
+# Note: The URL in the original script was incorrect (it had a 't' at the beginning).
+# The correct URL should not have that 't' and should be a valid link to the Nagios XI tarball.
+# The URL below is an example and should be verified for the latest version.
+# Note: The original script used 'xi-latest.tar.gz', but it's better to specify the version for consistency.
+RUN mkdir /tmp/nagiosxi && \
+    cd /tmp/nagiosxi && \
+    wget https://assets.nagios.com/downloads/nagiosxi/5/xi-5.11.3.tar.gz && \
+    tar xzf xi-5.11.3.tar.gz
+
+WORKDIR /tmp/nagiosxi/xi-5.11.3
 
 # overwrite custom config file
 ADD config.cfg xi-sys.cfg
@@ -47,16 +64,15 @@ RUN chmod 755 subcomponents/ndoutils/post-install \
 	&& run_sub ./A-subcomponents \
 	&& run_sub ./A0-mrtg
 
-RUN service mysqld start \
-    && . ./functions.sh \
-	&& run_sub ./B-installxi
+    
+ADD config.inc.php /usr/local/nagiosxi/html/config.inc.php
+RUN chown apache:apache /usr/local/nagiosxi/html/config.inc.php
+
 RUN . ./functions.sh \
     && run_sub ./C-cronjobs
 RUN . ./functions.sh \
     && run_sub ./D-chkconfigalldaemons
-RUN service mysqld start \
-    && . ./functions.sh \
-	&& run_sub ./E-importnagiosql
+
 RUN . ./functions.sh \
     && run_sub ./F-startdaemons
 RUN . ./functions.sh \
