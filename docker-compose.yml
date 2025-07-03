@@ -1,4 +1,4 @@
-version: "3.8"
+vversion: "3.8"
 
 services:
   mariadb:
@@ -19,7 +19,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host  # ⚠️ Solo funciona en Linux. Elimina esta línea si estás en Mac/Windows.
     container_name: nagiosxi
+    restart: unless-stopped
     ports:
       - "80:80"
       - "5666:5666"
@@ -29,6 +31,7 @@ services:
       DB_HOST: mariadb
       DB_USER: nagios
       DB_PASS: nagiospass
+      DEBUG: "true"
     volumes:
       - nagios_data:/usr/local/nagiosxi
     depends_on:
