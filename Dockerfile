@@ -6,8 +6,8 @@ RUN dnf -y update && \
     dnf -y install wget unzip net-tools dnf-utils \
     php php-cli php-mysqlnd httpd \
     gcc glibc glibc-langpack-en gd gd-devel make net-snmp openssl-devel \
-    xinetd tar && \
-    yum clean all
+    tar && \
+    dnf clean all
     
 # install nagiosxi
 # download and extract the latest version of Nagios XI
