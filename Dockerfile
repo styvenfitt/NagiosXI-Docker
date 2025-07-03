@@ -18,22 +18,24 @@ RUN dnf -y update && \
 # The correct URL should not have that 't' and should be a valid link to the Nagios XI tarball.
 # The URL below is an example and should be verified for the latest version.
 # Note: The original script used 'xi-latest.tar.gz', but it's better to specify the version for consistency.
-RUN mkdir /tmp/nagiosxi && \
-    cd /tmp/nagiosxi && \
-    wget https://assets.nagios.com/downloads/nagiosxi/5/xi-5.11.3.tar.gz && \
-    tar xzf xi-5.11.3.tar.gz
+RUN curl -L -o /tmp/nagiosxi.tar.gz https://assets.nagios.com/downloads/nagiosxi/5/xi-5.11.3.tar.gz && \
+    mkdir -p /tmp/nagiosxi && \
+    tar -xzf /tmp/nagiosxi.tar.gz -C /tmp/nagiosxi
+
 
 WORKDIR /tmp/nagiosxi/xi-5.11.3
 
 # overwrite custom config file
 ADD config.cfg xi-sys.cfg
 
+RUN ls -l /tmp/nagiosxi/xi-5.11.3
+
 # start building
-RUN ./init.sh \
-    && . ./xi-sys.cfg \
-	&& umask 0022 \
-	&& . ./functions.sh \
-	&& log="install.log"
+RUN chmod +x init.sh
+RUN ./init.sh
+RUN . ./xi-sys.cfg
+RUN umask 0022
+RUN . ./functions.sh && log="install.log"
 RUN export INTERACTIVE="False" \
     && export INSTALL_PATH=`pwd`
 RUN . ./functions.sh \
