@@ -1,4 +1,4 @@
-vversion: "3.8"
+version: "3.8"
 
 services:
   mariadb:
@@ -19,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      network: host  # ⚠️ Solo funciona en Linux. Elimina esta línea si estás en Mac/Windows.
+      # network: host  # ⚠️ Solo funciona en Linux nativo. Comentado para WSL compatibility.
     container_name: nagiosxi
     restart: unless-stopped
     ports:
