@@ -13,7 +13,7 @@ RUN apt-get update && \
     gcc build-essential libgd-dev make snmp libssl-dev \
     tar mysql-client sudo cron rsyslog \
     lsb-release ca-certificates \
-    passwd adduser login dos2unix \
+    passwd adduser login \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
     
 # install nagiosxi
@@ -34,13 +34,6 @@ WORKDIR /tmp/nagiosxi
 ADD config.cfg xi-sys.cfg
 
 RUN ls -l /tmp/nagiosxi
-
-# Limpiar todos los scripts de caracteres Windows (\r) para evitar errores
-# Esto debe hacerse antes de ejecutar cualquier script
-RUN echo "Limpiando caracteres de fin de línea Windows..." && \
-    find . -type f \( -name "*.sh" -o -name "*.cfg" -o -name "[0-9]*" -o -name "[A-Z]*" \) -exec dos2unix {} \; && \
-    find . -type f -exec sed -i 's/\r$//' {} \; && \
-    echo "Limpieza completada"
 
 # start building
 RUN chmod +x init.sh
@@ -65,73 +58,38 @@ RUN . ./functions.sh \
 RUN sed -i.bak s/selinux/sudoers/g 9-dbbackups
 RUN . ./functions.sh \
     && run_sub ./9-dbbackups
-# Saltar el paso 11-sourceguardian debido a problemas con archivos ZIP corruptos
-# Este paso no es crítico para el funcionamiento básico de Nagios XI
-# RUN . ./functions.sh \
-#     && run_sub ./11-sourceguardian
-# Saltar también 13-phpini ya que depende de sourceguardian
-# Pero hacer una configuración básica de PHP para que los siguientes pasos funcionen
-RUN echo "Configurando PHP básico sin SourceGuardian..." && \
-    # Configurar timezone en PHP
-    sed -i 's/;date.timezone =/date.timezone = UTC/' /etc/php/8.1/apache2/php.ini && \
-    sed -i 's/;date.timezone =/date.timezone = UTC/' /etc/php/8.1/cli/php.ini && \
-    # Habilitar extensiones necesarias
-    sed -i 's/;extension=gd/extension=gd/' /etc/php/8.1/apache2/php.ini && \
-    sed -i 's/;extension=curl/extension=curl/' /etc/php/8.1/apache2/php.ini && \
-    # Aumentar limits básicos
-    sed -i 's/memory_limit = .*/memory_limit = 256M/' /etc/php/8.1/apache2/php.ini && \
-    sed -i 's/upload_max_filesize = .*/upload_max_filesize = 64M/' /etc/php/8.1/apache2/php.ini && \
-    sed -i 's/post_max_size = .*/post_max_size = 64M/' /etc/php/8.1/apache2/php.ini && \
-    echo "Configuración básica de PHP completada"
-# RUN . ./functions.sh \
-#     && run_sub ./13-phpini
+RUN . ./functions.sh \
+    && run_sub ./11-sourceguardian
+RUN . ./functions.sh \
+    && run_sub ./13-phpini
 
 ADD scripts/NDOUTILS-POST subcomponents/ndoutils/post-install
 ADD scripts/install subcomponents/ndoutils/install
-# Saltar temporalmente A-subcomponents que requiere configuración específica de PHP
-# RUN chmod 755 subcomponents/ndoutils/post-install \
-#     && chmod 755 subcomponents/ndoutils/install \
-# 	&& . ./functions.sh \
-# 	&& run_sub ./A-subcomponents \
-# 	&& run_sub ./A0-mrtg
 RUN chmod 755 subcomponents/ndoutils/post-install \
     && chmod 755 subcomponents/ndoutils/install \
-    && echo "Saltando A-subcomponents y A0-mrtg por dependencias de configuración PHP específica"
+	&& . ./functions.sh \
+	&& run_sub ./A-subcomponents \
+	&& run_sub ./A0-mrtg
 
     
 ADD config.inc.php /usr/local/nagiosxi/html/config.inc.php
 RUN chown www-data:www-data /usr/local/nagiosxi/html/config.inc.php
 
-# Por ahora saltamos los pasos que requieren SourceGuardian y configuraciones complejas
-# Esto permite crear una imagen base funcional que luego puede ser configurada manualmente
-# RUN . ./functions.sh \
-#     && run_sub ./C-cronjobs
-# RUN . ./functions.sh \
-#     && run_sub ./D-chkconfigalldaemons
-# RUN . ./functions.sh \
-#     && run_sub ./F-startdaemons
-# RUN . ./functions.sh \
-#     && run_sub ./Z-webroot
+RUN . ./functions.sh \
+    && run_sub ./C-cronjobs
+RUN . ./functions.sh \
+    && run_sub ./D-chkconfigalldaemons
 
-# Configuración básica manual de Nagios XI
-RUN echo "Configurando Nagios XI de forma simplificada..." && \
-    # Crear directorios básicos
-    mkdir -p /usr/local/nagiosxi/html && \
-    mkdir -p /usr/local/nagiosxi/tmp && \
-    mkdir -p /usr/local/nagiosxi/var && \
-    mkdir -p /usr/local/nagiosxi/etc && \
-    # Configurar permisos básicos
-    chown -R www-data:www-data /usr/local/nagiosxi && \
-    # Habilitar mod_rewrite en Apache
-    a2enmod rewrite && \
-    a2enmod ssl && \
-    echo "Configuración básica completada"
+RUN . ./functions.sh \
+    && run_sub ./F-startdaemons
+RUN . ./functions.sh \
+    && run_sub ./Z-webroot
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # set startup script
 ADD start.sh /start.sh
-RUN dos2unix /start.sh && chmod 755 /start.sh
+RUN chmod 755 /start.sh
 EXPOSE 80 5666 5667
 
 CMD ["/start.sh"]

@@ -1,60 +1,48 @@
 #!/bin/bash
+/usr/sbin/init
 
-echo "🚀 Iniciando Nagios XI en Ubuntu 22.04..."
-
-# Configurar variables de entorno predeterminadas
-export DB_HOST=${DB_HOST:-localhost}
-export DB_USER=${DB_USER:-nagiosxi}
-export DB_PASS=${DB_PASS:-nagiosxi}
-export DB_NAME=${DB_NAME:-nagiosxi}
-
-# Iniciar servicios básicos de Ubuntu necesarios
-echo "� Iniciando servicios del sistema..."
-
-# Crear directorios necesarios si no existen
-mkdir -p /var/run/apache2
-mkdir -p /var/lock/apache2
-mkdir -p /var/log/apache2
-mkdir -p /usr/local/nagios/var
-mkdir -p /usr/local/nagios/var/spool/checkresults
-
-# Configurar permisos
-chown -R www-data:www-data /var/run/apache2
-chown -R www-data:www-data /var/log/apache2
-chown -R nagios:nagios /usr/local/nagios/var
-
-echo "🌐 Iniciando Apache..."
-/usr/sbin/apache2ctl -D FOREGROUND &
-
-echo "⏰ Iniciando Cron..."
-service cron start
-
-echo "📊 Iniciando Rsyslog..."
-service rsyslog start
-
-# Si existe configuración de Nagios, intentar iniciarlo
-if [ -f "/usr/local/nagios/bin/nagios" ]; then
-    echo "� Iniciando Nagios Core..."
-    /usr/local/nagios/bin/nagios -d /usr/local/nagios/etc/nagios.cfg
-fi
-
-echo "✅ Servicios iniciados."
-echo ""
-echo "🎉 Nagios XI está ejecutándose!"
-echo "📱 Acceso web: http://localhost:8080/nagiosxi/"
-echo ""
-echo "📋 Para depuración, puedes ejecutar:"
-echo "   docker exec -it nagiosxi-test bash"
-echo ""
-
-# Mantener el contenedor ejecutándose
-echo "🔄 Manteniendo servicios activos..."
-while true; do
-    # Verificar que Apache siga ejecutándose
-    if ! pgrep apache2 > /dev/null; then
-        echo "⚠️  Apache se detuvo, reiniciando..."
-        /usr/sbin/apache2ctl start
-    fi
-    sleep 30
+# Esperar a que la base de datos esté disponible
+echo "⏳ Esperando a que MariaDB esté disponible en $DB_HOST..."
+until mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1;" "$DB_NAME" &>/dev/null; do
+  sleep 3
 done
+echo "✅ MariaDB está disponible."
+
+# Iniciar servicios necesarios
+echo "🚀 Iniciando servicios de Nagios XI..."
+
+# starting services
+
+# Apache
+/usr/sbin/service apache2 start
+
+# Otros servicios
+/usr/sbin/service ajaxterm start
+/usr/sbin/service cron start
+/usr/sbin/service xinetd start
+/usr/sbin/service ndo2db start
+/usr/sbin/service npcd start
+/usr/sbin/service nagios start
+/usr/sbin/service rsyslog start
+
+#repair database to ensure consistency
+echo "🛠️ Reparando base de datos..."
+/usr/local/nagiosxi/scripts/repair_databases.sh
+
+# Reiniciar cron por si acaso
+/usr/sbin/service cron restart
+
+# welcome everyone
+
+cat <<-EOF
+
+	🎉 Bienvenido a Nagios XI
+
+	Accede a la interfaz web en:
+	    http://your_ip/nagiosxi/
+
+EOF
+
+# Mostrar logs en tiempo real
+tail -F /usr/local/nagios/var/nagios.log
 
